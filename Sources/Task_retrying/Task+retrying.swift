@@ -7,6 +7,15 @@ public enum TaskRetryingError: Error {
 
 extension Task where Failure == Error {
     @discardableResult
+    /// Create a retriable Task with deadline and max retry count
+    /// - Parameters:
+    ///   - condition: Condition that indicates where to retry
+    ///   - priority: (Optional) Priority of the task
+    ///   - maxRetryCount: max number of retries, default is 3
+    ///   - retryDelay: delay after each retries, default is 1 seconds
+    ///   - timeoutInSeconds: timeout in seconds
+    ///   - operation: operation that needs to do
+    /// - Returns: Retriable task
     public static func retrying(
         where condition: @escaping (Error) -> Bool,
         priority: TaskPriority? = nil,
