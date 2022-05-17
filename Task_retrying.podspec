@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = 'Task_retrying'
-  s.version          = '1.0.1'
+  s.version          = '1.0.2'
   s.summary          = 'Extension for Task for retrying operations.'
   
   s.description      = <<-DESC
