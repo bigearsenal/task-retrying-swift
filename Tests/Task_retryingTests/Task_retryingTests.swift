@@ -112,6 +112,25 @@ final class Task_retryingTests: XCTestCase {
         XCTAssertEqual(numberOfOperations, 1)
     }
     
+    func testPerpetualRetryCountWithIdentifyingError() async throws {
+        let errors: [CustomError] = .init(repeating: .errorThatNeedToRetry, count: 3) + [.errorThatCanNotBeRetried]
+        
+        await XCTAssertThrowsError(
+            try await Task.retrying(
+                where: {error in (error as? CustomError) == .errorThatNeedToRetry},
+                maxRetryCount: .max,
+                retryDelay: 1
+            ) {
+                numberOfOperations += 1
+                throw errors[numberOfOperations]
+            }
+                .value
+        ) { error in
+            XCTAssertEqual(error as? CustomError, .errorThatCanNotBeRetried)
+        }
+        XCTAssertEqual(numberOfOperations, 3)
+    }
+    
     // MARK: - Helpers
     private func nanoseconds(seconds: Int) -> UInt64 {
         1_000_000 * UInt64(seconds)
