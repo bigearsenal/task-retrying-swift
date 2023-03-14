@@ -24,6 +24,36 @@ extension Task where Failure == Error {
         timeoutInSeconds: Int? = nil,
         operation: @Sendable @escaping () async throws -> Success
     ) -> Task {
+        retrying(
+            where: condition,
+            priority: priority,
+            maxRetryCount: maxRetryCount,
+            retryDelay: retryDelay,
+            timeoutInSeconds: timeoutInSeconds,
+            operation: { _ in
+                try await operation()
+            }
+        )
+    }
+    
+    @discardableResult
+    /// Create a retriable Task with deadline and max retry count
+    /// - Parameters:
+    ///   - condition: Condition that indicates where to retry
+    ///   - priority: (Optional) Priority of the task
+    ///   - maxRetryCount: max number of retries, default is 3
+    ///   - retryDelay: delay after each retries, default is 1 seconds
+    ///   - timeoutInSeconds: timeout in seconds
+    ///   - operation: operation that needs to do which receive a `numberOfRetried` as it parameters
+    /// - Returns: Retriable task
+    public static func retrying(
+        where condition: @escaping (Error) -> Bool,
+        priority: TaskPriority? = nil,
+        maxRetryCount: Int = 3,
+        retryDelay: TimeInterval = 1,
+        timeoutInSeconds: Int? = nil,
+        operation: @Sendable @escaping (Int) async throws -> Success
+    ) -> Task {
         let oneSecond = TimeInterval(1_000_000_000)
         let delay = UInt64(oneSecond * retryDelay)
         
@@ -35,12 +65,12 @@ extension Task where Failure == Error {
             deadline = nil
         }
         return Task(priority: priority) {
-            for _ in 0...maxRetryCount {
+            for i in 0...maxRetryCount {
                 do {
                     if let deadline = deadline, Date() >= deadline {
                         throw TaskRetryingError.timedOut
                     }
-                    return try await operation()
+                    return try await operation(i)
                 } catch {
                     guard condition(error) else {throw error}
                     
