@@ -83,7 +83,9 @@ final class Task_retryingTests: XCTestCase {
             }
                 .value
         ) { error in
-            XCTAssertEqual(error as? TaskRetryingError, .exceededMaxRetryCount)
+            let error = error as! TaskRetryingError
+            XCTAssertEqual(error.type, .exceededMaxRetryCount)
+            XCTAssertEqual(error.lastError as? CustomError, .errorThatNeedToRetry)
         }
         XCTAssertEqual(numberOfOperations, maxRetryCount + 1) // first time and maxRetryCount times doing operation
     }
@@ -107,7 +109,9 @@ final class Task_retryingTests: XCTestCase {
             }
                 .value
         ) { error in
-            XCTAssertEqual(error as? TaskRetryingError, .timedOut)
+            let error = error as! TaskRetryingError
+            XCTAssertEqual(error.type, .timedOut)
+            XCTAssertEqual(error.lastError as? CustomError, .errorThatNeedToRetry)
         }
         XCTAssertEqual(numberOfOperations, 1)
     }

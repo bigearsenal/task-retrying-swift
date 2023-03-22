@@ -1,8 +1,13 @@
 import Foundation
 
-public enum TaskRetryingError: Error {
-    case timedOut
-    case exceededMaxRetryCount
+public struct TaskRetryingError: Error {
+    public enum ErrorType: String, Equatable {
+        case timedOut
+        case exceededMaxRetryCount
+    }
+    
+    public let type: ErrorType
+    public let lastError: Error?
 }
 
 extension Task where Failure == Error {
@@ -54,9 +59,11 @@ extension Task where Failure == Error {
         timeoutInSeconds: Int? = nil,
         operation: @Sendable @escaping (Int) async throws -> Success
     ) -> Task {
+        // set delay time
         let oneSecond = TimeInterval(1_000_000_000)
         let delay = UInt64(oneSecond * retryDelay)
         
+        // get deadline
         let startAt = Date()
         let deadline: Date?
         if let timeoutInSeconds = timeoutInSeconds {
@@ -64,13 +71,34 @@ extension Task where Failure == Error {
         } else {
             deadline = nil
         }
+        
+        // execute task
         return Task(priority: priority) {
+            
+            // cache last error
+            var lastError: Error?
+            
+            // run for maxRetryCount times
             for i in 0...maxRetryCount {
                 do {
+                    // assert deadline is not exceeded
                     if let deadline = deadline, Date() >= deadline {
-                        throw TaskRetryingError.timedOut
+                        throw TaskRetryingError(
+                            type: .timedOut,
+                            lastError: lastError
+                        )
                     }
-                    return try await operation(i)
+                    
+                    // perform action
+                    do {
+                        return try await operation(i)
+                    }
+                    
+                    // cache lastError and re throw
+                    catch {
+                        lastError = error
+                        throw error
+                    }
                 } catch {
                     guard condition(error) else {throw error}
                     
@@ -79,7 +107,10 @@ extension Task where Failure == Error {
                 }
             }
 
-            throw TaskRetryingError.exceededMaxRetryCount
+            throw TaskRetryingError(
+                type: .exceededMaxRetryCount,
+                lastError: lastError
+            )
         }
     }
 }
